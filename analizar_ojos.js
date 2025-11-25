@@ -1,92 +1,87 @@
-document.getElementById("btnAnalizar").addEventListener("click", async function (e) {
-  e.preventDefault();
+// ---------------------------------------------
+// ANALIZAR OJOS — CORREGIDO COMPLETO
+// ---------------------------------------------
 
-  const idPaciente = localStorage.getItem("id_paciente");
-  if (!idPaciente) {
-    alert("❌ No se encontró el ID del paciente.");
-    return;
-  }
+async function analizarImagen(base64Img) {
+    const url = "https://mti-clasificacion.onrender.com/clasificar-imagen";
 
-  const supabase = window.supabase.createClient(
-    "https://yqsasvrqzlqrgtywddmo.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlxc2FzdnJxemxxcmd0eXdkZG1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NDc3NDksImV4cCI6MjA2NDIyMzc0OX0.uQbaJnZExdU1_Ay_Sk-1KiiIcdNgUD3dSlsWGgiYc-M"
-  );
-
-  // Obtener imágenes guardadas
-  const { data, error } = await supabase
-    .from("formulario_pacientes")
-    .select("url_ojo_derecho, url_ojo_izquierdo")
-    .eq("id", idPaciente)
-    .single();
-
-  if (error || !data) {
-    alert("❌ No se pudieron recuperar las imágenes para analizar.");
-    console.error(error);
-    return;
-  }
-
-  const progreso = document.getElementById("progreso");
-  progreso.textContent = "30%";
-
-  async function analizarImagen(base64, tipo) {
     const formData = new FormData();
 
     // Convertir base64 a Blob
-    const blob = await fetch(base64).then(res => res.blob());
-    formData.append("imagen", blob, tipo + ".png");
+    const blob = await fetch(base64Img).then(res => res.blob());
+    formData.append("imagen", blob, "imagen_base64.jpg");
 
-    // 🔥🔥🔥 URL FINAL DEL BACKEND EN PRODUCCIÓN (Render)
-    const respuesta = await fetch("https://mti-clasificacion.onrender.com/clasificar-retinopatia", {
-      method: "POST",
-      body: formData
-    });
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            body: formData
+        });
 
-    if (!respuesta.ok) {
-      const errorData = await respuesta.json().catch(() => ({}));
-      throw new Error(errorData.error || "Error al clasificar la imagen.");
+        if (!response.ok) {
+            throw new Error("Error en la respuesta del servidor");
+        }
+
+        const data = await response.json();
+        return data;
+
+    } catch (error) {
+        console.error("❌ Error al analizar imagen:", error);
+        throw error;
     }
+}
 
-    const resultado = await respuesta.json();
-    return resultado.clasificacion;
-  }
 
-  try {
-    // Analizar ojo derecho
-    const clasificacionDerecho = await analizarImagen(data.url_ojo_derecho, "ojo_derecho");
-    progreso.textContent = "60%";
+// ---------------------------------------------
+// FUNCIÓN PRINCIPAL — BOTÓN “ANALIZAR OJOS”
+// ---------------------------------------------
 
-    // Analizar ojo izquierdo
-    const clasificacionIzquierdo = await analizarImagen(data.url_ojo_izquierdo, "ojo_izquierdo");
-    progreso.textContent = "80%";
+document.getElementById("btnAnalizar").addEventListener("click", async () => {
+    try {
+        actualizarProgreso(30);  // ya validaste imágenes
 
-    // Guardar resultados en Supabase
-    const { error: updateError } = await supabase
-      .from("formulario_pacientes")
-      .update({
-        resultado_derecho: clasificacionDerecho,
-        resultado_izquierdo: clasificacionIzquierdo
-      })
-      .eq("id", idPaciente);
+        const imgDerecho = localStorage.getItem("url_ojo_derecho");
+        const imgIzquierdo = localStorage.getItem("url_ojo_izquierdo");
 
-    if (updateError) {
-      alert("❌ Error al guardar los diagnósticos.");
-      console.error(updateError);
-      return;
+        if (!imgDerecho || !imgIzquierdo) {
+            alert("Debes cargar ambas imágenes antes de analizar.");
+            return;
+        }
+
+        actualizarProgreso(40);
+
+        // Clasificar ojo derecho
+        const resultadoDerecho = await analizarImagen(imgDerecho);
+        console.log("➡ Resultado derecho:", resultadoDerecho);
+        actualizarProgreso(60);
+
+        // Clasificar ojo izquierdo
+        const resultadoIzquierdo = await analizarImagen(imgIzquierdo);
+        console.log("➡ Resultado izquierdo:", resultadoIzquierdo);
+        actualizarProgreso(90);
+
+        // Guardar resultados
+        localStorage.setItem("resultado_derecho", JSON.stringify(resultadoDerecho));
+        localStorage.setItem("resultado_izquierdo", JSON.stringify(resultadoIzquierdo));
+
+        actualizarProgreso(100);
+
+        alert("✔ Análisis completado.");
+        window.location.href = "pantalla_4.html";
+
+    } catch (error) {
+        alert("❌ Error durante el análisis: " + error);
+        actualizarProgreso(0);
     }
+});
 
-    // Mostrar en pantalla
-    document.getElementById("resultado_derecho").textContent = clasificacionDerecho;
-    document.getElementById("resultado_izquierdo").textContent = clasificacionIzquierdo;
-    document.getElementById("resultados").classList.remove("hidden");
-    document.getElementById("descargaPDF").classList.remove("hidden");
-    document.getElementById("noListo").style.display = "none";
 
-    progreso.textContent = "100%";
+// ---------------------------------------------
+// FUNCIÓN DE PROGRESO EN PANTALLA
+// ---------------------------------------------
 
-    alert("✅ Análisis completado y guardado exitosamente.");
+function actualizarProgreso(valor) {
+    const barra = document.getElementById("avancePorcentaje");
+    barra.textContent = valor + "%";
+}
 
-  } catch (err) {
-    alert("❌ Error durante el análisis: " + err.message);
-    console.error(err);
-  }
 });
