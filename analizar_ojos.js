@@ -83,5 +83,3 @@ function actualizarProgreso(valor) {
     const barra = document.getElementById("avancePorcentaje");
     barra.textContent = valor + "%";
 }
-
-});
