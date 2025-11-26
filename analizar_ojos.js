@@ -71,7 +71,8 @@ document.getElementById("btnAnalizar").addEventListener("click", async function 
     }
 
     const resultado = await respuesta.json();
-    return resultado.clasificacion;
+    return resultado.categoria;
+
   }
 
   // -----------------------------------------
