@@ -58,7 +58,7 @@ document.getElementById("btnAnalizar").addEventListener("click", async function 
     const blob = await fetch(base64).then(res => res.blob());
     formData.append("imagen", blob, tipo + ".png");
 
-    const urlBackend = "https://mti-clasificacion.onrender.com/clasificar-retinopatia";
+    const urlBackend = "https://mti-clasificacion.onrender.com/clasificar-imagen";
 
     const respuesta = await fetch(urlBackend, {
       method: "POST",
